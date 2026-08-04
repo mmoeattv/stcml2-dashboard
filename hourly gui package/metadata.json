@@ -1,0 +1,26 @@
+{
+  "features_in_order": [
+    "exterior wall width",
+    "room depth",
+    "glazing facade orientation",
+    "WWR",
+    "outdoor mean raad temp",
+    "hour of the year"
+  ],
+  "orientation_codes": {
+    "0": "North",
+    "90": "East",
+    "180": "South",
+    "270": "West",
+    "note": "confirmed from the raw per-orientation hourly files"
+  },
+  "hour_of_year": "0-8759 (0-indexed), raw hour-of-year column, not calendar hour-of-day",
+  "targets": {
+    "PMV": "unitless",
+    "Cooling": "kWh (hourly cooling load)",
+    "Heating": "kWh (hourly heating load)"
+  },
+  "PPD": "derived from predicted PMV via ISO 7730, not a model",
+  "interval": "90% conformal: lower=q_lo.predict(x)-Q, upper=q_hi.predict(x)+Q (Q per target in conformal.json)",
+  "note_vs_monthly": "hourly mode has NO month feature (dropped by design decision); outdoor temp column here is 'outdoor mean raad temp' in the raw files (confirmed to be outdoor dry-bulb temp, a naming typo in the source data)."
+}

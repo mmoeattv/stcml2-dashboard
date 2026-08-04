@@ -1,0 +1,20 @@
+{
+  "PMV": {
+    "mode": "cross_cqr_additive",
+    "Q": 0.0015926361083984375,
+    "coverage": 0.9113306404402295,
+    "width": 1.133337378501892
+  },
+  "Cooling": {
+    "mode": "cross_cqr_additive",
+    "Q": 2.6226043701171875e-05,
+    "coverage": 0.9578972017328182,
+    "width": 0.8990306854248047
+  },
+  "Heating": {
+    "mode": "cross_cqr_additive",
+    "Q": 0.0,
+    "coverage": 0.9743092143777076,
+    "width": 0.06543359905481339
+  }
+}

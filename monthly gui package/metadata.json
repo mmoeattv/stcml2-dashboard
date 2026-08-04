@@ -1,0 +1,24 @@
+{
+  "features_in_order": [
+    "month",
+    "exterior wall width",
+    "room depth",
+    "glazing facade orientation",
+    "WWR",
+    "outdoor temp"
+  ],
+  "orientation_codes": {
+    "0": "North?",
+    "90": "East",
+    "180": "South",
+    "270": "West",
+    "note": "use the same numeric codes as the training data"
+  },
+  "targets": {
+    "PMV": "unitless",
+    "Cooling": "kWh (cooling load)",
+    "Heating": "kWh (heating load)"
+  },
+  "PPD": "derived from predicted PMV via ISO 7730, not a model",
+  "interval": "90% conformal: lower=q_lo.predict(x)-Q, upper=q_hi.predict(x)+Q (Q per target in conformal.json)"
+}
