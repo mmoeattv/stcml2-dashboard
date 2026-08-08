@@ -106,7 +106,7 @@ st.set_page_config(page_title="S-TCML2 · Thermal Comfort", page_icon="🌡️",
 # -----------------------------------------------------------------------------
 # SESSION STATE
 # -----------------------------------------------------------------------------
-_DEFAULTS = dict(theme="dark", mode="hourly", wall_raw=6.0, depth_raw=4.0,
+_DEFAULTS = dict(theme="light", mode="hourly", wall_raw=6.0, depth_raw=4.0,
                   wwr_raw=0.30, orientation="South", outdoor_temp=34.0,
                   month=7, day=15, hour=12,
                   lock_wall=True, lock_depth=True, lock_orientation=False, lock_wwr=False,
@@ -889,26 +889,44 @@ with col_alt:
                          use_container_width=True, type="primary"):
                 locks = {"wall": st.session_state.lock_wall, "depth": st.session_state.lock_depth,
                           "orientation": st.session_state.lock_orientation, "wwr": st.session_state.lock_wwr}
+                st.session_state.alt_locks = locks
                 st.session_state.alt_results = search_alternatives(
                     base_kwargs, locks, wall_snapped, depth_snapped, orientation_deg, wwr_snapped)
 
         if st.session_state.alt_results is not None:
             alts, any_comfortable, has_ties = st.session_state.alt_results
+            locks = st.session_state.alt_locks
             deg_to_label = {v: k for k, v in ORIENTATION_DEG.items()}
-            rows = ""
-            base_row = (f'<tr class="baseline"><td>Now (baseline)</td><td>{orientation_label}</td>'
-                        f'<td>{wwr_snapped:.0%}</td><td>{pmv_val:+.2f}</td><td>{ppd_val:.0f}%</td>'
+
+            # Only show columns for the variables that were actually searched (free); a locked
+            # variable is identical across every row, so displaying it would just be clutter —
+            # the table's header adapts to whichever of wall/depth/orientation/WWR varied.
+            column_defs = [
+                ("wall", "Wall (m)", lambda a: f"{a['wall']}", f"{wall_snapped}"),
+                ("depth", "Depth (m)", lambda a: f"{a['depth']}", f"{depth_snapped}"),
+                ("orientation", "Ori", lambda a: deg_to_label[a["orientation_deg"]], orientation_label),
+                ("wwr", "WWR", lambda a: f"{a['wwr']:.0%}", f"{wwr_snapped:.0%}"),
+            ]
+            visible_cols = [c for c in column_defs if not locks[c[0]]]
+
+            header_cells = "".join(f"<th>{header}</th>" for _, header, _, _ in visible_cols)
+            base_cells = "".join(f"<td>{baseline_val}</td>" for _, _, _, baseline_val in visible_cols)
+            base_row = (f'<tr class="baseline"><td>Now (baseline)</td>{base_cells}'
+                        f'<td>{pmv_val:+.2f}</td><td>{ppd_val:.0f}%</td>'
                         f'<td>{cool["value"]:.1f}</td><td>{heat["value"]:.1f}</td></tr>')
-            for a in alts:
+            rows = ""
+            for i, a in enumerate(alts):
+                letter = chr(65 + i)
                 cls = "best" if a["rank"] == 1 else ""
                 star = f' <span style="color:{C["gold"]};">&#9733;</span>' if a["rank"] == 1 else ""
                 tie_mark = " &approx;" if a["tied"] else ""
-                label = f"{a['rank']}{tie_mark}{star}"
-                rows += (f'<tr class="{cls}"><td>{label}</td><td>{deg_to_label[a["orientation_deg"]]}</td>'
-                         f'<td>{a["wwr"]:.0%}</td><td>{a["pmv"]:+.2f}</td><td>{a["ppd"]:.0f}%</td>'
+                label = f"{letter}{tie_mark}{star}"
+                var_cells = "".join(f"<td>{fmt(a)}</td>" for _, _, fmt, _ in visible_cols)
+                rows += (f'<tr class="{cls}"><td>{label}</td>{var_cells}'
+                         f'<td>{a["pmv"]:+.2f}</td><td>{a["ppd"]:.0f}%</td>'
                          f'<td>{a["cooling"]:.1f}</td><td>{a["heating"]:.1f}</td></tr>')
             st.markdown(f"""<div style="overflow-x:auto;"><table class="alt-table">
-              <tr><th>Alt</th><th>Ori</th><th>WWR</th><th>PMV</th><th>PPD (%)</th><th>Cooling (kWh)</th><th>Heating (kWh)</th></tr>
+              <tr><th>Alt</th>{header_cells}<th>PMV</th><th>PPD (%)</th><th>Cooling (kWh)</th><th>Heating (kWh)</th></tr>
               {base_row}{rows}
             </table></div>
             <div class="alt-note"><span style="color:{C['gold']};">&#9733;</span> best trade-off (acceptable PMV
