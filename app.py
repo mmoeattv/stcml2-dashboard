@@ -897,16 +897,18 @@ with col_alt:
             deg_to_label = {v: k for k, v in ORIENTATION_DEG.items()}
             rows = ""
             base_row = (f'<tr class="baseline"><td>Now (baseline)</td><td>{orientation_label}</td>'
-                        f'<td>{wwr_snapped:.0%}</td><td>{pmv_val:+.2f}</td><td>{ppd_val:.0f}%</td></tr>')
+                        f'<td>{wwr_snapped:.0%}</td><td>{pmv_val:+.2f}</td><td>{ppd_val:.0f}%</td>'
+                        f'<td>{cool["value"]:.1f}</td><td>{heat["value"]:.1f}</td></tr>')
             for a in alts:
                 cls = "best" if a["rank"] == 1 else ""
                 star = f' <span style="color:{C["gold"]};">&#9733;</span>' if a["rank"] == 1 else ""
                 tie_mark = " &approx;" if a["tied"] else ""
                 label = f"{a['rank']}{tie_mark}{star}"
                 rows += (f'<tr class="{cls}"><td>{label}</td><td>{deg_to_label[a["orientation_deg"]]}</td>'
-                         f'<td>{a["wwr"]:.0%}</td><td>{a["pmv"]:+.2f}</td><td>{a["ppd"]:.0f}%</td></tr>')
+                         f'<td>{a["wwr"]:.0%}</td><td>{a["pmv"]:+.2f}</td><td>{a["ppd"]:.0f}%</td>'
+                         f'<td>{a["cooling"]:.1f}</td><td>{a["heating"]:.1f}</td></tr>')
             st.markdown(f"""<div style="overflow-x:auto;"><table class="alt-table">
-              <tr><th>Alt</th><th>Ori</th><th>WWR</th><th>PMV</th><th>PPD (%)</th></tr>
+              <tr><th>Alt</th><th>Ori</th><th>WWR</th><th>PMV</th><th>PPD (%)</th><th>Cooling (kWh)</th><th>Heating (kWh)</th></tr>
               {base_row}{rows}
             </table></div>
             <div class="alt-note"><span style="color:{C['gold']};">&#9733;</span> best trade-off (acceptable PMV
