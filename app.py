@@ -479,6 +479,13 @@ def search_alternatives(base_kwargs, locks, current_wall, current_depth, current
     PMV +-0.5 filter, since that filter can legitimately eliminate every option
     under peak conditions and leave nothing to compare. Also reports whether any
     searched combination would have met the strict +-0.5 band, for an honest note.
+
+    Cooling-load point predictions carry meaningfully more relative error than PMV/PPD
+    (~4% MAPE vs ~1.6%, verified against the training simulation data), which is enough
+    to flip the ranking between two genuinely close candidates even though the model's
+    aggregate accuracy is high. Rather than present a falsely confident #1 in that case,
+    candidates whose 90% conformal total-load intervals overlap are grouped as tied and
+    ordered within the tie by PPD, the more reliable signal, instead of by raw score.
     """
     domains = {
         "exterior_wall_width": [current_wall] if locks["wall"] else WALLS,
@@ -491,11 +498,15 @@ def search_alternatives(base_kwargs, locks, current_wall, current_depth, current
     for combo in itertools.product(*(domains[k] for k in keys)):
         kwargs = {**base_kwargs, **dict(zip(keys, combo))}
         r = predict(**kwargs)
+        c_lo, c_hi = r["Cooling"]["lower"], r["Cooling"]["upper"]
+        h_lo, h_hi = r["Heating"]["lower"], r["Heating"]["upper"]
         candidates.append({
             "wall": kwargs["exterior_wall_width"], "depth": kwargs["room_depth"],
             "orientation_deg": kwargs["orientation"], "wwr": kwargs["wwr"],
             "pmv": r["PMV"]["value"], "ppd": r["PPD"]["value"],
             "cooling": r["Cooling"]["value"], "heating": r["Heating"]["value"],
+            "load_lo": (c_lo + h_lo) if (c_lo is not None and h_lo is not None) else None,
+            "load_hi": (c_hi + h_hi) if (c_hi is not None and h_hi is not None) else None,
         })
 
     ppds = [c["ppd"] for c in candidates]
@@ -509,7 +520,33 @@ def search_alternatives(base_kwargs, locks, current_wall, current_depth, current
 
     candidates.sort(key=lambda c: c["score"])
     any_comfortable = any(-0.5 <= c["pmv"] <= 0.5 for c in candidates)
-    return candidates[:3], any_comfortable
+
+    top3 = candidates[:3]
+
+    def overlaps(a, b):
+        if a["load_lo"] is None or b["load_lo"] is None:
+            return False
+        return a["load_lo"] <= b["load_hi"] and b["load_lo"] <= a["load_hi"]
+
+    clusters, current = [], [0]
+    for i in range(1, len(top3)):
+        if overlaps(top3[current[-1]], top3[i]):
+            current.append(i)
+        else:
+            clusters.append(current)
+            current = [i]
+    clusters.append(current)
+
+    ordered, rank = [], 1
+    for cluster in clusters:
+        members = sorted((top3[i] for i in cluster), key=lambda c: c["ppd"]) if len(cluster) > 1 else [top3[cluster[0]]]
+        for m in members:
+            m["rank"], m["tied"] = rank, len(members) > 1
+            ordered.append(m)
+        rank += 1
+
+    has_ties = any(c["tied"] for c in ordered)
+    return ordered, any_comfortable, has_ties
 
 
 def compute_trend(mode, wall, depth, orientation_deg, wwr, month, day):
@@ -856,15 +893,16 @@ with col_alt:
                     base_kwargs, locks, wall_snapped, depth_snapped, orientation_deg, wwr_snapped)
 
         if st.session_state.alt_results is not None:
-            alts, any_comfortable = st.session_state.alt_results
+            alts, any_comfortable, has_ties = st.session_state.alt_results
             deg_to_label = {v: k for k, v in ORIENTATION_DEG.items()}
             rows = ""
             base_row = (f'<tr class="baseline"><td>Now (baseline)</td><td>{orientation_label}</td>'
                         f'<td>{wwr_snapped:.0%}</td><td>{pmv_val:+.2f}</td><td>{ppd_val:.0f}%</td></tr>')
-            for i, a in enumerate(alts):
-                cls = "best" if i == 0 else ""
-                star = f' <span style="color:{C["gold"]};">&#9733;</span>' if i == 0 else ""
-                label = f"{i+1}{star}"
+            for a in alts:
+                cls = "best" if a["rank"] == 1 else ""
+                star = f' <span style="color:{C["gold"]};">&#9733;</span>' if a["rank"] == 1 else ""
+                tie_mark = " &approx;" if a["tied"] else ""
+                label = f"{a['rank']}{tie_mark}{star}"
                 rows += (f'<tr class="{cls}"><td>{label}</td><td>{deg_to_label[a["orientation_deg"]]}</td>'
                          f'<td>{a["wwr"]:.0%}</td><td>{a["pmv"]:+.2f}</td><td>{a["ppd"]:.0f}%</td></tr>')
             st.markdown(f"""<div style="overflow-x:auto;"><table class="alt-table">
@@ -873,6 +911,12 @@ with col_alt:
             </table></div>
             <div class="alt-note"><span style="color:{C['gold']};">&#9733;</span> best trade-off (acceptable PMV
             with minimal total load)</div>""", unsafe_allow_html=True)
+            if has_ties:
+                st.markdown(f'<div class="alt-note" style="color:{C["text_muted"]};display:flex;align-items:flex-start;gap:5px;">'
+                            f'<span style="margin-top:1px;">{icon("info", 13, C["text_muted"])}</span>'
+                            f'<span>&approx; marks alternatives whose predicted cooling+heating load is within '
+                            f'the model\'s own uncertainty range — treat tied ranks as equally good, not strictly '
+                            f'ordered.</span></div>', unsafe_allow_html=True)
 
             badge_colors = [C["blue"], C["green"], C["purple"]]
             alt_cols = st.columns(len(alts))
