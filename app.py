@@ -40,7 +40,7 @@ MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
 # raw north/south/east/west.xlsx climate column, which is identical across
 # orientations - there are only 12 distinct "monthly mean" values in the
 # training set, so min/max is the honest bound, not a percentile).
-VALID_RANGE = {"hourly": (11.8, 30.9), "monthly": (12.9, 27.4)}
+VALID_RANGE = {"hourly": (5.1, 43.9), "monthly": (12.9, 27.4)}
 
 ACCURACY = {
     "hourly":  {"PMV": "0.862",  "Cooling": "0.824",  "Heating": "0.875",  "PPD": "0.752"},
